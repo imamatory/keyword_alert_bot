@@ -7,21 +7,21 @@
 [![Paypal Donate](https://img.shields.io/badge/Paypal%20Donate-yellow?style=flat&logo=paypal)](https://www.paypal.com/donate/?business=DRVVDHMVL8G7Q&no_recurring=0&item_name=Sponsored+development+of+keyword_alert_bot%21+&currency_code=USD)
 [![Github Sponsor](https://img.shields.io/badge/Github%20Sponsor-yellow?style=flat&logo=github)](https://github.com/sponsors/Hootrix)
 
-Telegram关键字提醒机器人，用于实时监测频道/群组中的关键字消息。
+Telegram keyword reminder robot is used to monitor keyword messages in channels/groups in real time.
 
-确保普通Telegram账户能够在不需要验证的情况下加入指定群组。
+Ensure that ordinary Telegram accounts can join designated groups without verification.
 
-Warning: Demo bot使用过载，建议使用 Docker 镜像自部署
+Warning: Demo bot is overloaded, it is recommended to use Docker image self-deployment
 
 
 👉  Features：
 
-- [x] 关键字消息订阅：根据设定的关键字和频道实时推送消息提醒
-- [x] 支持正则表达式匹配语法
-- [x] 支持多频道订阅 & 多关键字订阅
-- [x] 支持订阅群组消息
-- [x] 支持私有频道ID/邀请链接的消息订阅 
-- [x] 支持私有群组订阅
+- <input checked="" disabled="" type="checkbox"> Keyword message subscription: push message reminders in real time based on set keywords and channels 
+- <input checked="" disabled="" type="checkbox"> Supports regular expression matching syntax 
+- <input checked="" disabled="" type="checkbox"> Supports multi-channel subscription & multi-keyword subscription 
+- <input checked="" disabled="" type="checkbox"> Support subscribing to group messages 
+- <input checked="" disabled="" type="checkbox"> Support message subscription of private channel ID/invitation link 
+- <input checked="" disabled="" type="checkbox"> Support private group subscription 
 
   1. https://t.me/+B8yv7lgd9FI0Y2M1  
   2. https://t.me/joinchat/B8yv7lgd9FI0Y2M1 
@@ -29,9 +29,9 @@ Warning: Demo bot使用过载，建议使用 Docker 镜像自部署
 
 👉 Todo:
 
-- [ ] 私有频道消息提醒完整内容预览
-- [ ] 多账号支持
-- [ ] 扫描退出无用频道/群组
+- <input disabled="" type="checkbox"> Private channel message reminder full content preview 
+- <input disabled="" type="checkbox"> Multiple account support 
+- <input disabled="" type="checkbox"> Scan to exit useless channels/groups 
 
 ## 🔍Demo
 
@@ -42,19 +42,20 @@ http://t.me/keyword_alert_bot
 
 ## 🚀Run
 
-### 1. 配置文件
+### 1. Configuration file
+
 
 #### config.yml.example --> config.yml
 
-将 config.yml.example 复制到本地并重命名为 config.yml，然后根据下面申请的 api 进行配置
+Copy config.yml.example to local and rename it to config.yml, and then configure it according to the api applied below
 
 #### Create Telelgram Account & API
 
-建议使用新Telegram账户[开通api](https://my.telegram.org/apps) 来使用
+It is recommended to use a new Telegram account[Open api](https://my.telegram.org/apps)to use
 
 #### Create BOT 
 
-https://t.me/BotFather  创建机器人
+[https://t.me/BotFather](https://t.me/BotFather)Create a bot
 
 
 ### 2. 🐳Docker
@@ -75,10 +76,10 @@ Signed in successfully as DEMO; remember to not break the ToS or you will risk a
 
 ```
 
-首次运行需要Telegram账户接收数字验证码，并输入密码（Telegram API触发），之后提示success即可
+The first run requires a Telegram account to receive a digital verification code and enter a password (triggered by Telegram API), and then success will be prompted.
 
 
-其他
+other
 ```
 # 重启
 $ docker restart keyword_alert_bot
@@ -86,20 +87,22 @@ $ docker restart keyword_alert_bot
 # 停止
 $ docker stop keyword_alert_bot
 
-# 数据库文件挂载路径: /app/db/.db
+# Database file mounting path: /app/db/.db
+
 $ docker run -it --name keyword_alert_bot  -v $(pwd)/config.yml:/app/config.yml -v $(pwd)/db/keyword_alert_bot.db:/app/db/.db yha8897/keyword_alert_bot
 
 ```
 
 ### docker镜像更新
 
-避免数据丢失，容器更新前记得把docker中数据备份。如果已经把数据库文件挂载进容器 可以不用
+To avoid data loss, remember to back up the data in docker before updating the container. If the database file has been mounted into the container, it is not necessary.
 ```
 $ docker cp keyword_alert_bot:/app/db/.db ~/keyword_alert_bot.db
-# 即可保存到: ~/keyword_alert_bot.db
+# You can save it to: ~/keyword_alert_bot.db
+
 ```
 
-持久化所有数据，避免权限问题 `--user root` 强制root权限执行
+Persist all data to avoid permission issues`--user root`Force root permission execution
 ```
 $ docker run -d --name keyword_alert_bot --user root  -v $(pwd)/config.yml:/app/config.yml -v $(pwd)/db/:/app/db/ -v $(pwd)/.tmp/:/app/.tmp/ -v $(pwd)/logs/:/app/logs/  yha8897/keyword_alert_bot
 ```
@@ -120,17 +123,19 @@ $ python3 ./main.py
 
 ## 📘Usage
 
-### 普通关键字匹配
+### Normal keyword matching
+
 
 ```
-/subscribe   免费     https://t.me/tianfutong
-/subscribe   优惠券   https://t.me/tianfutong
+/subscribe   免费[https://t.me/tianfutong](https://t.me/tianfutong)
+/subscribe   优惠券[https://t.me/tianfutong](https://t.me/tianfutong)
 
 ```
 
-### 正则表达式匹配
+### Regular expression matching
 
-使用类似JavaScript正则语法规则，用/包裹正则语句，目前可以使用的匹配模式：i,g
+
+Use regular grammar rules similar to JavaScript and wrap regular statements with /. Currently available matching patterns: i, g
 
 ```
 # 订阅手机型号关键字：iphone x，排除XR，XS等型号，且忽略大小写
@@ -151,17 +156,18 @@ $ python3 ./main.py
 
  ### 1. You have joined too many channels/supergroups (caused by JoinChannelRequest)
 
- BOT中所有订阅频道的总数超过 500。原因是BOT使用的Telegram演示账户限制导致。建议你自行部署
+The total number of all subscribed channels in the BOT exceeds 500. The reason is due to the limitations of the Telegram demo account used by BOT. It is recommended that you deploy it yourself
 
  ### 2. sqlite3.OperationalError: unable to open database file
 
-  如果是docker镜像启动，由于内部使用nonroot账户 需要授权挂载文件权限 或者直接使用`--user root`参数
+If the docker image is started, since the nonroot account is used internally, you need to authorize the permission to mount the file or use it directly.`--user root`parameter
   ```
   $ docker run -it --name keyword_alert_bot --user root  -v $(pwd)/config.yml:/app/config.yml -v $(pwd)/db/:/app/db/ -v $(pwd)/.tmp/:/app/.tmp/ -v $(pwd)/logs/:/app/logs/  yha8897/keyword_alert_bot
   ```
 
 
- ### 3. 查看日志发现个别群组无法接收消息，而软件客户端正常接收
+### 3. Check the log and find that some groups cannot receive messages, but the software client receives them normally.
+
 
  🤔尝试更新telethon到最新版本或者稳定的1.24.0版本
 
