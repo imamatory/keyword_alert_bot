@@ -2,7 +2,7 @@ version: "3.9"
 services:
   keyword_alert_bot:
     # build: .
-    image: yha8897/keyword_alert_bot:latest
+    image: imamatory/keyword_alert_bot:latest
     volumes:
       - ./config.yml:/app/config.yml
       - ./db/:/app/db/

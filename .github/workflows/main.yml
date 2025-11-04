@@ -54,7 +54,7 @@ jobs:
 
 
     - name: Login to DockerHub
-      uses: docker/login-action@v1 
+      uses: docker/login-action@v1
       with:
         username: ${{ secrets.DOCKER_HUB_USERNAME }}
         password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
@@ -66,8 +66,8 @@ jobs:
         context: .
         platforms: linux/amd64,linux/arm64
         push: true
-        tags: yha8897/keyword_alert_bot:latest
-    
+        tags: imamatory/keyword_alert_bot:latest
+
     - name: Create release
       if: steps.file_check.outputs.updated == 'true'
       env:
