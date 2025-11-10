@@ -1,20 +1,15 @@
-# Account configuration description
-
-# Config BOT and account
 account:
-  # Account that monitors channel messages
-  api_id: '1400003'
-  api_hash: 'd11xxxxx112a7e059e831'
-  phone: '+86190000010'
-  username: 'cliasaxxxev'
+  api_id : $API_ID
+  api_hash : $API_HASH
+  phone : $PHONE
+  username : $USERNAME
 
-  # Bot token used to send messages
-  bot_token: '1000007:AAHNh8axxxxxxxxxxxxxxxxHA'
-  bot_username: 'keyxxxxxrt_bot' # Same as bot_name
+  bot_token : $BOT_TOKEN
+  bot_username : $BOT_USERNAME
 
 # LOG
 logger:
-  path: null # e.g. /root/absolute-path/  default null: {_current_path}/logs/
+  path: null # e.g. /root/absolute-path/   default null: {_current_path}/logs/
   level: INFO # FATAL,ERROR,WARN,INFO,DEBUG,NOTSET
 
 # Proxy
@@ -23,8 +18,10 @@ proxy:
   address: null  # e.g. 127.0.0.1
   port: null # e.g. 1088
 
+
 # Automatically leave groups/channels (for those without valid subscription records)
 auto_leave_channel: false
+
 
 # Message de-duplication rules
 # SUBSCRIBE_ID: Default rule; deduplicate per subscription
@@ -33,10 +30,9 @@ msg_unique_rule: SUBSCRIBE_ID # default SUBSCRIBE_ID
 
 # Non-public service
 # This bot only serves specified users
-private_service: false
+private_service: true
 authorized_users:
-  - 123456789
-  - 987654321
+  - $AUTHORIZED_USER_ID
 
 # Block messages sent by bots (groups only)
 # For example, some groups have auto-reply bots that generate duplicate messages; or ad bots that spam after joining
