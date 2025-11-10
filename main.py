@@ -10,6 +10,7 @@ from telethon.tl.functions.messages import ImportChatInviteRequest
 from telethon.tl.functions.messages import CheckChatInviteRequest
 from telethon.tl.functions.channels import DeleteHistoryRequest
 from telethon.tl.functions.channels import LeaveChannelRequest, DeleteChannelRequest
+from telethon.sessions import StringSession
 from logger import logger
 from config import config,_current_path as current_path
 from telethon import utils as telethon_utils
@@ -29,10 +30,14 @@ if all(config['proxy'].values()): # All are not None
 # proxy = (socks.SOCKS5, '127.0.0.1', 1088)
 
 account = config['account']
+
+if not account['reader_session_id']:
+  raise ValueError('reader_session_id is required in config.yml')
+
 account['bot_name'] = account.get('bot_name') or account['bot_username']
 tmp_path = f'{current_path}/.tmp/'
 cache = diskcache.Cache(tmp_path)# Set cache file directory, current tmp folder. Used to cache step-by-step command operations to avoid bot unable to find current input operation progress
-client = TelegramClient(f'{tmp_path}/.{account["username"]}_tg_login', account['api_id'], account['api_hash'], proxy = proxy)
+client = TelegramClient(StringSession(account['reader_session_id']), account['api_id'], account['api_hash'], proxy = proxy)
 client.start(phone=account['phone'])
 # client.start()
 
