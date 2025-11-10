@@ -3,7 +3,7 @@ account:
   api_hash: $API_HASH
   phone: $PHONE
   username: $USERNAME
-  session_id: $TG_READER_SESSION_ID
+  reader_session_id: $TG_READER_SESSION_ID
 
   bot_token: $BOT_TOKEN
   bot_username: $BOT_USERNAME
