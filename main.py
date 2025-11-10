@@ -18,6 +18,7 @@ from telethon.tl.types import PeerChannel
 from telethon.extensions import markdown,html
 from asyncstdlib.functools import lru_cache as async_lru_cache
 import asyncio
+from aiohttp import web
 from utils.common import is_allow_access,banner,is_msg_block,get_event_chat_username,get_event_chat_username_list,build_sublist_msg
 from utils import db_model as utils
 
@@ -43,6 +44,26 @@ client.start(phone=account['phone'])
 
 # Set bot and start directly
 bot = TelegramClient(f'{tmp_path}/.{account["bot_name"]}', account['api_id'], account['api_hash'],proxy = proxy).start(bot_token=account['bot_token'])
+
+# Health check endpoint for Kamal deployment
+async def health_check(request):
+    """Health check endpoint for container orchestration"""
+    return web.Response(text='OK', status=200)
+
+async def run_health_server():
+    """Run health check HTTP server on port 80"""
+    app = web.Application()
+    app.router.add_get('/up', health_check)
+    app.router.add_get('/health', health_check)
+    app.router.add_get('/', health_check)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', 80)
+    await site.start()
+    logger.info('Health check server started on port 80')
+    # Keep the server running
+    while True:
+        await asyncio.sleep(3600)
 
 def js_to_py_re(rx):
   '''
@@ -1038,8 +1059,15 @@ async def common(event):
       await event.respond('success unsubscribe id:{}'.format(result if result else 'None'))
   raise events.StopPropagation
 
-if __name__ == "__main__":
+async def main():
+    """Main entry point - runs health check server and telegram client concurrently"""
     cache.expire()
     print(banner())
-    # Start client loop. Prevent process exit
-    client.run_until_disconnected()
+    # Start health check server and telegram client concurrently
+    await asyncio.gather(
+        run_health_server(),
+        client.run_until_disconnected()
+    )
+
+if __name__ == "__main__":
+    asyncio.run(main())

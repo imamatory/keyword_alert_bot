@@ -3,3 +3,4 @@
 *.pyc
 config.yml
 logs/*
+pyvenv.cfg
