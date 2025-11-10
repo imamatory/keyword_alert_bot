@@ -8,12 +8,12 @@ RUN pip install pipenv && \
 ADD https://github.com/krallin/tini/releases/download/v0.19.0/tini-static /tini
 RUN chmod +x /tini
 
-FROM gcr.io/distroless/python3-debian12:nonroot
+FROM python:3.11-slim
 WORKDIR /app
 COPY --from=dependency-builder /site-packages /site-packages
 COPY --from=dependency-builder /app/ /app/
 COPY --from=dependency-builder /tini /tini
+RUN apt-get update && apt-get install -y --no-install-recommends gettext-base && rm -rf /var/lib/apt/lists/*
 ENV PYTHONPATH=/site-packages
-USER nonroot
 ENTRYPOINT ["/tini", "--"]
-CMD ["/usr/bin/python", "main.py"]
+CMD ["/app/run.sh"]
