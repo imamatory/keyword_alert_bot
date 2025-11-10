@@ -38,12 +38,10 @@ if not account['reader_session_id']:
 account['bot_name'] = account.get('bot_name') or account['bot_username']
 tmp_path = f'{current_path}/.tmp/'
 cache = diskcache.Cache(tmp_path)# Set cache file directory, current tmp folder. Used to cache step-by-step command operations to avoid bot unable to find current input operation progress
-client = TelegramClient(StringSession(account['reader_session_id']), account['api_id'], account['api_hash'], proxy = proxy)
-client.start(phone=account['phone'])
-# client.start()
 
-# Set bot and start directly
-bot = TelegramClient(f'{tmp_path}/.{account["bot_name"]}', account['api_id'], account['api_hash'],proxy = proxy).start(bot_token=account['bot_token'])
+# Initialize clients but don't start them yet (will start in main())
+client = TelegramClient(StringSession(account['reader_session_id']), account['api_id'], account['api_hash'], proxy = proxy)
+bot = TelegramClient(f'{tmp_path}/.{account["bot_name"]}', account['api_id'], account['api_hash'],proxy = proxy)
 
 # Health check endpoint for Kamal deployment
 async def health_check(request):
@@ -1063,6 +1061,11 @@ async def main():
     """Main entry point - runs health check server and telegram client concurrently"""
     cache.expire()
     print(banner())
+
+    # Start the clients within the async context
+    await client.start(phone=account['phone'])
+    await bot.start(bot_token=account['bot_token'])
+
     # Start health check server and telegram client concurrently
     await asyncio.gather(
         run_health_server(),
