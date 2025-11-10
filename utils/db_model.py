@@ -2,10 +2,10 @@
 """
 数据库操作类
 """
-import logging,sys,os,datetime
+import os
 import re
-from peewee import MySQLDatabase,BigIntegerField,Model,CharField,DoubleField,IntegerField,CharField,SqliteDatabase,FloatField,SmallIntegerField,DateTimeField
-from peewee import OperationalError
+
+from peewee import CharField, DateTimeField, IntegerField, Model, OperationalError, SmallIntegerField, SqliteDatabase
 
 __all__ = [
   'db',
@@ -124,7 +124,7 @@ class _Db:
         table ([type]): [description]
         field ([type]): [description]
     '''
-    from playhouse.migrate import SqliteMigrator,migrate
+    from playhouse.migrate import SqliteMigrator, migrate
     migrator = SqliteMigrator(_connect)
     migrate(
         migrator.add_column(table, field.name, field),

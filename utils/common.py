@@ -1,10 +1,11 @@
-from config import config
 from colorama import Fore, Style, init
 from text_box_wrapper import wrap
+
+from config import config
 from logger import logger
-from .__version__ import __version__
 from utils import db_model as utils
 
+from .__version__ import __version__
 
 
 def is_allow_access(chat_id) -> bool:

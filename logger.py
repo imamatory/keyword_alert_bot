@@ -1,6 +1,8 @@
-import logging,os
+import logging
+import os
 from logging.handlers import RotatingFileHandler
-from  config import _current_path,config
+
+from config import _current_path, config
 
 __all__ = [
   'logger'

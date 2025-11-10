@@ -1,0 +1,19 @@
+[tool.ruff]
+target-version = "py311"
+# Adjust line length to match project preferences if needed.
+line-length = 119
+extend-exclude = [
+    ".tmp",
+]
+
+select = [
+    "E",  # pycodestyle errors
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+]
+
+ignore = [
+    "E501",  # Let Ruff manage line length but don't fail on existing long lines.
+]
+

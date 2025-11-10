@@ -1,4 +1,7 @@
-import os,yaml,sys
+import os
+import sys
+
+import yaml
 
 __all__ = [
   'config',

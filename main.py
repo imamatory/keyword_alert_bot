@@ -1,27 +1,38 @@
-#coding=utf-8
-from telethon import TelegramClient, events, sync, errors
-import socks,os,datetime
+import asyncio
+import datetime
 import re as regex
-import diskcache
 import time
 from urllib.parse import urlparse
-from telethon.tl.functions.channels import JoinChannelRequest
-from telethon.tl.functions.messages import ImportChatInviteRequest
-from telethon.tl.functions.messages import CheckChatInviteRequest
-from telethon.tl.functions.channels import DeleteHistoryRequest
-from telethon.tl.functions.channels import LeaveChannelRequest, DeleteChannelRequest
-from telethon.sessions import StringSession
-from logger import logger
-from config import config,_current_path as current_path
-from telethon import utils as telethon_utils
-from telethon.tl.types import PeerChannel
-from telethon.extensions import markdown,html
-from asyncstdlib.functools import lru_cache as async_lru_cache
-import asyncio
-from aiohttp import web
-from utils.common import is_allow_access,banner,is_msg_block,get_event_chat_username,get_event_chat_username_list,build_sublist_msg
-from utils import db_model as utils
 
+import diskcache
+import socks
+from aiohttp import web
+from asyncstdlib.functools import lru_cache as async_lru_cache
+from telethon import TelegramClient, errors, events
+from telethon import utils as telethon_utils
+from telethon.extensions import html, markdown
+from telethon.sessions import StringSession
+from telethon.tl.functions.channels import (
+  DeleteChannelRequest,
+  DeleteHistoryRequest,
+  JoinChannelRequest,
+  LeaveChannelRequest,
+)
+from telethon.tl.functions.messages import CheckChatInviteRequest, ImportChatInviteRequest
+from telethon.tl.types import PeerChannel
+
+from config import _current_path as current_path
+from config import config
+from logger import logger
+from utils import db_model as utils
+from utils.common import (
+  banner,
+  build_sublist_msg,
+  get_event_chat_username,
+  get_event_chat_username_list,
+  is_allow_access,
+  is_msg_block,
+)
 
 # Configure proxy to access tg server
 proxy = None
@@ -194,7 +205,7 @@ async def on_greeting(event):
       channel_entity = await client_get_entity(event.chat_id,None)
       if channel_entity:
         event_chat = channel_entity
-        setattr(event_chat,'username','')
+        event_chat.username = ''
       else:
         logger.error(f'event_chat empty. event: { event }')
         raise events.StopPropagation
@@ -512,7 +523,7 @@ async def join_channel_insert_subscribe(user_id,keyword_channel_list):
       return f'Unable to use this channel invite link: {c}\nLink has expired.'
     except errors.UserAlreadyParticipantError as _e:# Duplicate join private channel
       logger.warning(f'{c} UserAlreadyParticipantError ERROR:{_e}')
-      return f'Unable to use this channel invite link: UserAlreadyParticipantError'
+      return 'Unable to use this channel invite link: UserAlreadyParticipantError'
     except Exception as _e: # Channel doesn't exist
       logger.error(f'{c} JoinChannelRequest ERROR:{_e}')
 
@@ -799,7 +810,7 @@ async def setlengthlimit(event):
     find = utils.db.connect.execute_sql('select id,blacklist_value from user_block_list where user_id = ? and blacklist_type=? ' ,(user_id.id,blacklist_type)).fetchone()
     if not splitd:
       if find is None:
-        await event.respond(f'lengthlimit not found.')
+        await event.respond('lengthlimit not found.')
       else:
         await event.respond(f'setlengthlimit `{find[1]}`')
     else: # Pass multiple parameters e.g. /setlengthlimit 123
@@ -838,8 +849,6 @@ async def start(event):
 
 Purpose: Subscribe to channel messages based on keywords. Support groups
 
-BUG FEEDBACK: https://git.io/JJ0Ey
-
 Support multi-keyword and multi-channel subscription, use comma `,` separator
 
 Use space between keywords and channels
@@ -870,8 +879,6 @@ Main commands:
 
 ---
 Purpose: Subscribe to channel messages based on keywords. Support groups
-
-BUG FEEDBACK: https://git.io/JJ0Ey
 
 Multi-keyword and multi-channel subscription support, using comma `,` interval.
 
