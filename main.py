@@ -194,6 +194,26 @@ async def resolve_invit_hash(invit_hash,expired_secends = 60 * 5):
     return rel
   return None
 
+async def forward_matched_message(event, receiver):
+  '''
+  Forward the matched message that contains the pattern
+
+  Args:
+      event: The current event that triggered the pattern match
+      receiver: The chat_id of the receiver to forward to
+
+  Returns:
+      bool: True if the message was forwarded, False otherwise
+  '''
+  try:
+    # Forward the matched message
+    await bot.forward_messages(receiver, [event.message.id], event.chat_id)
+    logger.info(f'Forwarded matched message {event.message.id} to receiver {receiver}')
+    return True
+  except Exception as e:
+    logger.error(f'Error forwarding matched message: {e}')
+    return False
+
 # Client-related operations, purpose: read messages
 @client.on(events.MessageEdited)
 @client.on(events.NewMessage())
@@ -333,6 +353,9 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
                   if is_msg_block(receiver=receiver,msg=message.text,channel_name=event_chat_username,channel_id=event.chat_id):
                     continue
 
+                  # Forward the matched message
+                  await forward_matched_message(event, receiver)
+
                   await bot.send_message(receiver, message_str,link_preview = True,parse_mode = 'markdown')
                 else:
                   # Message already sent
@@ -354,6 +377,9 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
                   # Blacklist check
                   if is_msg_block(receiver=receiver,msg=message.text,channel_name=event_chat_username,channel_id=event.chat_id):
                     continue
+
+                  # Forward the matched message
+                  await forward_matched_message(event, receiver)
 
                   await bot.send_message(receiver, message_str,link_preview = True,parse_mode = 'markdown')
                 else:
