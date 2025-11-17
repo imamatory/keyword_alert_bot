@@ -211,11 +211,20 @@ async def forward_matched_message(event, receiver, from_peer=None):
     if from_peer is None:
       if event.chat_id is not None:
         from_peer = event.chat_id
-      elif event.chat is not None and hasattr(event.chat, 'id'):
-        from_peer = event.chat.id
+      elif event.chat is not None:
+        # Prefer passing the entity itself, or its ID if available
+        if hasattr(event.chat, 'id') and event.chat.id is not None:
+          from_peer = event.chat.id
+        else:
+          from_peer = event.chat
       else:
-        logger.error('Cannot forward message: event.chat_id is None and event.chat is None or has no id')
+        logger.error('Cannot forward message: event.chat_id is None and event.chat is None')
         return False
+
+    # Ensure from_peer is not None before forwarding
+    if from_peer is None:
+      logger.error('Cannot forward message: from_peer is None')
+      return False
 
     # Forward the matched message
     await bot.forward_messages(receiver, [event.message.id], from_peer)
@@ -289,6 +298,9 @@ async def on_greeting(event):
       # Find all subscriptions for current channel
       event_chat_username_list = get_event_chat_username_list(event_chat)
       event_chat_username = get_event_chat_username(event_chat)
+      # Safety check: ensure event_chat_username_list is a list
+      if event_chat_username_list is None:
+        event_chat_username_list = []
       placeholders = ','.join('?' for _ in event_chat_username_list)# Placeholder fill
 
       condition_strs = ['l.chat_id = ?']
@@ -303,11 +315,19 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
       """
 
       # bind = [str(event.chat_id)]
-      bind = [str(telethon_utils.get_peer_id(PeerChannel(event.chat_id)))] # Ensure query and storage id units are unified marked_id
+      # Use event_chat.id if available, otherwise fall back to event.chat_id
+      chat_id_for_bind = event_chat.id if (hasattr(event_chat, 'id') and event_chat.id is not None) else event.chat_id
+      if chat_id_for_bind is None:
+        logger.error(f'Cannot determine chat_id for query. event.chat_id: {event.chat_id}, event_chat: {event_chat}')
+        raise events.StopPropagation
+      bind = [str(telethon_utils.get_peer_id(PeerChannel(chat_id_for_bind)))] # Ensure query and storage id units are unified marked_id
       if event_chat_username_list:
         bind += event_chat_username_list
 
       find = utils.db.connect.execute_sql(sql,tuple(bind)).fetchall()
+      # Safety check: ensure find is iterable (should be a list, but handle None case)
+      if find is None:
+        find = []
       if find:
         logger.info(f'channel: {event_chat_username_list}; all chat_id & keywords:{find}') # Print current channel, subscribed users and keywords
 
@@ -364,8 +384,14 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
                   if is_msg_block(receiver=receiver,msg=message.text,channel_name=event_chat_username,channel_id=event.chat_id):
                     continue
 
-                  # Forward the matched message
-                  await forward_matched_message(event, receiver, from_peer=event_chat.id if hasattr(event_chat, 'id') else event_chat)
+                  # Forward the matched message - use event_chat entity or its ID, fallback to event.chat_id
+                  if hasattr(event_chat, 'id') and event_chat.id is not None:
+                    from_peer = event_chat.id
+                  elif event.chat_id is not None:
+                    from_peer = event.chat_id
+                  else:
+                    from_peer = event_chat  # Use entity itself as last resort
+                  await forward_matched_message(event, receiver, from_peer=from_peer)
 
                   await bot.send_message(receiver, message_str,link_preview = True,parse_mode = 'markdown')
                 else:
@@ -389,8 +415,14 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
                   if is_msg_block(receiver=receiver,msg=message.text,channel_name=event_chat_username,channel_id=event.chat_id):
                     continue
 
-                  # Forward the matched message
-                  await forward_matched_message(event, receiver, from_peer=event_chat.id if hasattr(event_chat, 'id') else event_chat)
+                  # Forward the matched message - use event_chat entity or its ID, fallback to event.chat_id
+                  if hasattr(event_chat, 'id') and event_chat.id is not None:
+                    from_peer = event_chat.id
+                  elif event.chat_id is not None:
+                    from_peer = event.chat_id
+                  else:
+                    from_peer = event_chat  # Use entity itself as last resort
+                  await forward_matched_message(event, receiver, from_peer=from_peer)
 
                   await bot.send_message(receiver, message_str,link_preview = True,parse_mode = 'markdown')
                 else:
