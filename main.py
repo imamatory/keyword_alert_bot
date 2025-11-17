@@ -207,31 +207,38 @@ async def forward_matched_message(event, receiver, from_peer=None):
       bool: True if the message was forwarded, False otherwise
   '''
   try:
+    logger.debug(f'forward_matched_message called: receiver={receiver}, from_peer={from_peer}, event.chat_id={event.chat_id}, event.chat={event.chat}')
+
     # Determine the from_peer: use provided parameter, or event.chat_id, or event.chat
     if from_peer is None:
+      logger.debug('from_peer is None, determining from event')
       if event.chat_id is not None:
         from_peer = event.chat_id
+        logger.debug(f'Using event.chat_id: {from_peer}')
       elif event.chat is not None:
         # Prefer passing the entity itself, or its ID if available
         if hasattr(event.chat, 'id') and event.chat.id is not None:
           from_peer = event.chat.id
+          logger.debug(f'Using event.chat.id: {from_peer}')
         else:
           from_peer = event.chat
+          logger.debug(f'Using event.chat entity: {from_peer}')
       else:
         logger.error('Cannot forward message: event.chat_id is None and event.chat is None')
         return False
 
     # Ensure from_peer is not None before forwarding
     if from_peer is None:
-      logger.error('Cannot forward message: from_peer is None')
+      logger.error('Cannot forward message: from_peer is None after determination')
       return False
 
+    logger.debug(f'Forwarding message {event.message.id} to receiver {receiver} from {from_peer} (type: {type(from_peer)})')
     # Forward the matched message
     await bot.forward_messages(receiver, [event.message.id], from_peer)
     logger.info(f'Forwarded matched message {event.message.id} to receiver {receiver} from {from_peer}')
     return True
   except Exception as e:
-    logger.error(f'Error forwarding matched message: {e}')
+    logger.error(f'Error forwarding matched message to {receiver}: {type(e).__name__}: {e}', exc_info=True)
     return False
 
 # Client-related operations, purpose: read messages
@@ -241,6 +248,7 @@ async def on_greeting(event):
     '''Greets someone'''
     # telethon.events.newmessage.NewMessage.Event
     # telethon.events.messageedited.MessageEdited.Event
+    logger.debug(f'on_greeting called: event.chat={event.chat}, event.chat_id={event.chat_id}, event.message.id={event.message.id if event.message else "N/A"}')
     if not event.chat: # Private group appears as None
       channel_entity = await client_get_entity(event.chat_id,None)
       if channel_entity:
@@ -296,12 +304,19 @@ async def on_greeting(event):
       # 2. Method: send new message directly, not forward. But can use URL preview to achieve effect
 
       # Find all subscriptions for current channel
+      logger.debug(f'Getting username list for event_chat: {event_chat}, type: {type(event_chat)}')
       event_chat_username_list = get_event_chat_username_list(event_chat)
       event_chat_username = get_event_chat_username(event_chat)
+      logger.debug(f'event_chat_username_list: {event_chat_username_list}, type: {type(event_chat_username_list)}, event_chat_username: {event_chat_username}')
       # Safety check: ensure event_chat_username_list is a list
       if event_chat_username_list is None:
+        logger.warning(f'event_chat_username_list is None, converting to empty list. event_chat: {event_chat}')
         event_chat_username_list = []
+      if not isinstance(event_chat_username_list, (list, tuple)):
+        logger.warning(f'event_chat_username_list is not a list/tuple: {type(event_chat_username_list)}, converting to list')
+        event_chat_username_list = list(event_chat_username_list) if event_chat_username_list else []
       placeholders = ','.join('?' for _ in event_chat_username_list)# Placeholder fill
+      logger.debug(f'Generated placeholders: {placeholders}')
 
       condition_strs = ['l.chat_id = ?']
       if event_chat_username_list:
@@ -324,15 +339,20 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
       if event_chat_username_list:
         bind += event_chat_username_list
 
+      logger.debug(f'Executing SQL query with bind: {bind}, sql: {sql}')
       find = utils.db.connect.execute_sql(sql,tuple(bind)).fetchall()
+      logger.debug(f'SQL query result type: {type(find)}, length: {len(find) if find else 0}')
       # Safety check: ensure find is iterable (should be a list, but handle None case)
       if find is None:
+        logger.warning('SQL query returned None, converting to empty list')
         find = []
       if find:
         logger.info(f'channel: {event_chat_username_list}; all chat_id & keywords:{find}') # Print current channel, subscribed users and keywords
 
+        logger.debug(f'Processing {len(find)} subscription matches. event.chat_id: {event.chat_id}, event_chat.id: {event_chat.id if hasattr(event_chat, "id") else "N/A"}')
         for receiver,keywords,l_id,l_chat_id in find:
           try:
+            logger.debug(f'Processing subscription: receiver={receiver}, keywords={keywords}, l_id={l_id}, l_chat_id={l_chat_id}')
             # Message send deduplication rule
             MSG_UNIQUE_RULE_MAP = {
               'SUBSCRIBE_ID': f'{receiver}_{l_id}',
@@ -359,17 +379,38 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
               re_update = utils.db.user_subscribe_list.update(chat_id = str(event.chat_id) ).where(utils.User_subscribe_list.id == l_id)
               re_update.execute()
 
-            chat_title = event_chat_username or event.chat.title
+            chat_title = event_chat_username or (event.chat.title if event.chat and hasattr(event.chat, 'title') else '')
             if is_regex_str_fuzzy(keywords):# Input is regex string
-              regex_match = js_to_py_re(keywords)(text)# Perform regex match, only supports i and g flags
-              if isinstance(regex_match,regex.Match):#search() result
+              logger.debug(f'Processing regex match for keywords: {keywords}, receiver: {receiver}, l_id: {l_id}')
+              try:
+                regex_match = js_to_py_re(keywords)(text)# Perform regex match, only supports i and g flags
+                logger.debug(f'Regex match result type: {type(regex_match)}, value: {regex_match}')
+              except Exception as regex_err:
+                logger.error(f'Error executing regex {keywords}: {regex_err}')
+                regex_match = None
+
+              if regex_match is None:
+                logger.debug(f'regex_match is None for keywords: {keywords}')
+                regex_match_str = []
+              elif isinstance(regex_match,regex.Match):#search() result
                 regex_match = [regex_match.group()]
-              regex_match_str = []# Display content
-              for _ in regex_match:
-                item = ''.join(_) if isinstance(_,tuple) else _
-                if item:
-                  regex_match_str.append(item) # Merge and remove spaces
-              regex_match_str = list(set(regex_match_str))# Remove duplicates
+                regex_match_str = []# Display content
+                for _ in regex_match:
+                  item = ''.join(_) if isinstance(_,tuple) else _
+                  if item:
+                    regex_match_str.append(item) # Merge and remove spaces
+                regex_match_str = list(set(regex_match_str))# Remove duplicates
+              else:
+                # regex_match should be a list from findall()
+                regex_match_str = []# Display content
+                if not isinstance(regex_match, (list, tuple)):
+                  logger.warning(f'Unexpected regex_match type: {type(regex_match)}, converting to list')
+                  regex_match = [regex_match] if regex_match else []
+                for _ in regex_match:
+                  item = ''.join(_) if isinstance(_,tuple) else _
+                  if item:
+                    regex_match_str.append(item) # Merge and remove spaces
+                regex_match_str = list(set(regex_match_str))# Remove duplicates
               if regex_match_str:# Default findall() result
                 # # {chat_title} \n\n
                 channel_title = f"\n\nCHANNEL: {chat_title}" if not event_chat_username else ""
@@ -444,7 +485,7 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
           except AssertionError as _e:
             raise _e
           except Exception as _e:
-            logger.error(f'{_e}')
+            logger.error(f'Error processing subscription (receiver={receiver}, l_id={l_id}, keywords={keywords}): {type(_e).__name__}: {_e}', exc_info=True)
       else:
         logger.debug(f'sql find empty. event.chat.username:{event_chat_username}, find:{find}, sql:{sql}')
 
