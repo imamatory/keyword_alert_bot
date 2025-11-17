@@ -194,21 +194,32 @@ async def resolve_invit_hash(invit_hash,expired_secends = 60 * 5):
     return rel
   return None
 
-async def forward_matched_message(event, receiver):
+async def forward_matched_message(event, receiver, from_peer=None):
   '''
   Forward the matched message that contains the pattern
 
   Args:
       event: The current event that triggered the pattern match
       receiver: The chat_id of the receiver to forward to
+      from_peer: The chat entity or ID to forward from (optional, defaults to event.chat_id or event.chat)
 
   Returns:
       bool: True if the message was forwarded, False otherwise
   '''
   try:
+    # Determine the from_peer: use provided parameter, or event.chat_id, or event.chat
+    if from_peer is None:
+      if event.chat_id is not None:
+        from_peer = event.chat_id
+      elif event.chat is not None and hasattr(event.chat, 'id'):
+        from_peer = event.chat.id
+      else:
+        logger.error('Cannot forward message: event.chat_id is None and event.chat is None or has no id')
+        return False
+
     # Forward the matched message
-    await bot.forward_messages(receiver, [event.message.id], event.chat_id)
-    logger.info(f'Forwarded matched message {event.message.id} to receiver {receiver}')
+    await bot.forward_messages(receiver, [event.message.id], from_peer)
+    logger.info(f'Forwarded matched message {event.message.id} to receiver {receiver} from {from_peer}')
     return True
   except Exception as e:
     logger.error(f'Error forwarding matched message: {e}')
@@ -354,7 +365,7 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
                     continue
 
                   # Forward the matched message
-                  await forward_matched_message(event, receiver)
+                  await forward_matched_message(event, receiver, from_peer=event_chat.id if hasattr(event_chat, 'id') else event_chat)
 
                   await bot.send_message(receiver, message_str,link_preview = True,parse_mode = 'markdown')
                 else:
@@ -379,7 +390,7 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
                     continue
 
                   # Forward the matched message
-                  await forward_matched_message(event, receiver)
+                  await forward_matched_message(event, receiver, from_peer=event_chat.id if hasattr(event_chat, 'id') else event_chat)
 
                   await bot.send_message(receiver, message_str,link_preview = True,parse_mode = 'markdown')
                 else:
