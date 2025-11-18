@@ -207,8 +207,12 @@ async def forward_matched_message(event, receiver, from_peer=None):
       bool: True if the message was forwarded, False otherwise
   '''
   try:
-    logger.debug(f'forward_matched_message called: receiver={receiver}, from_peer={from_peer}, event.chat_id={event.chat_id}, event.chat={event.chat}')
+    message = event.message
+    is_forwarded = message.fwd_from is not None
+    logger.debug(f'forward_matched_message called: receiver={receiver}, from_peer={from_peer}, event.chat_id={event.chat_id}, event.chat={event.chat}, is_forwarded={is_forwarded}')
 
+    # For forwarded messages, we still forward from the current chat
+    # Telegram will automatically preserve the forward chain
     # Determine the from_peer: use provided parameter, or event.chat_id, or event.chat
     if from_peer is None:
       logger.debug('from_peer is None, determining from event')
@@ -232,8 +236,9 @@ async def forward_matched_message(event, receiver, from_peer=None):
       logger.error('Cannot forward message: from_peer is None after determination')
       return False
 
-    logger.debug(f'Forwarding message {event.message.id} to receiver {receiver} from {from_peer} (type: {type(from_peer)})')
+    logger.debug(f'Forwarding message {event.message.id} to receiver {receiver} from {from_peer} (type: {type(from_peer)}), is_forwarded: {is_forwarded}')
     # Forward the matched message
+    # For forwarded messages, Telegram will preserve the forward information automatically
     await bot.forward_messages(receiver, [event.message.id], from_peer)
     logger.info(f'Forwarded matched message {event.message.id} to receiver {receiver} from {from_peer}')
     return True
