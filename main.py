@@ -213,20 +213,16 @@ async def forward_matched_message(event, receiver, from_peer=None):
 
     # For forwarded messages, we still forward from the current chat
     # Telegram will automatically preserve the forward chain
-    # Determine the from_peer: use provided parameter, or event.chat_id, or event.chat
+    # Determine the from_peer: use provided parameter, or prefer event.chat entity, fallback to event.chat_id
     if from_peer is None:
       logger.debug('from_peer is None, determining from event')
-      if event.chat_id is not None:
+      # Prefer using the entity object directly as it's more reliable
+      if event.chat is not None:
+        from_peer = event.chat
+        logger.debug(f'Using event.chat entity: {from_peer}')
+      elif event.chat_id is not None:
         from_peer = event.chat_id
         logger.debug(f'Using event.chat_id: {from_peer}')
-      elif event.chat is not None:
-        # Prefer passing the entity itself, or its ID if available
-        if hasattr(event.chat, 'id') and event.chat.id is not None:
-          from_peer = event.chat.id
-          logger.debug(f'Using event.chat.id: {from_peer}')
-        else:
-          from_peer = event.chat
-          logger.debug(f'Using event.chat entity: {from_peer}')
       else:
         logger.error('Cannot forward message: event.chat_id is None and event.chat is None')
         return False
@@ -235,6 +231,25 @@ async def forward_matched_message(event, receiver, from_peer=None):
     if from_peer is None:
       logger.error('Cannot forward message: from_peer is None after determination')
       return False
+
+    # Try to resolve the entity if it's a raw ID
+    # This is necessary because Telethon needs a proper InputEntity, not just a raw ID
+    try:
+      # If from_peer is already an entity object, use it directly
+      # Otherwise, try to resolve it using bot.get_input_entity()
+      if isinstance(from_peer, (int, str)):
+        logger.debug(f'Resolving entity for from_peer: {from_peer} (type: {type(from_peer)})')
+        resolved_entity = await bot.get_input_entity(from_peer)
+        from_peer = resolved_entity
+        logger.debug(f'Resolved entity: {resolved_entity}')
+      # If it's already an entity object, use it as-is
+    except ValueError as ve:
+      # Entity cannot be resolved (e.g., user ID that bot doesn't have access to)
+      logger.warning(f'Cannot resolve entity for from_peer {from_peer}: {ve}. Skipping forward.')
+      return False
+    except Exception as resolve_err:
+      logger.warning(f'Error resolving entity for from_peer {from_peer}: {resolve_err}. Attempting forward with original from_peer.')
+      # Continue with original from_peer, let forward_messages handle it
 
     logger.debug(f'Forwarding message {event.message.id} to receiver {receiver} from {from_peer} (type: {type(from_peer)}), is_forwarded: {is_forwarded}')
     # Forward the matched message
@@ -430,13 +445,15 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
                   if is_msg_block(receiver=receiver,msg=message.text,channel_name=event_chat_username,channel_id=event.chat_id):
                     continue
 
-                  # Forward the matched message - use event_chat entity or its ID, fallback to event.chat_id
-                  if hasattr(event_chat, 'id') and event_chat.id is not None:
-                    from_peer = event_chat.id
+                  # Forward the matched message - prefer event_chat entity directly, fallback to ID
+                  # Using the entity object directly is more reliable than just the ID
+                  if event_chat is not None:
+                    from_peer = event_chat  # Prefer entity object directly
                   elif event.chat_id is not None:
                     from_peer = event.chat_id
                   else:
-                    from_peer = event_chat  # Use entity itself as last resort
+                    logger.warning(f'Cannot determine from_peer for forwarding: event_chat={event_chat}, event.chat_id={event.chat_id}')
+                    from_peer = None
                   await forward_matched_message(event, receiver, from_peer=from_peer)
 
                   await bot.send_message(receiver, message_str,link_preview = True,parse_mode = 'markdown')
@@ -461,13 +478,15 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
                   if is_msg_block(receiver=receiver,msg=message.text,channel_name=event_chat_username,channel_id=event.chat_id):
                     continue
 
-                  # Forward the matched message - use event_chat entity or its ID, fallback to event.chat_id
-                  if hasattr(event_chat, 'id') and event_chat.id is not None:
-                    from_peer = event_chat.id
+                  # Forward the matched message - prefer event_chat entity directly, fallback to ID
+                  # Using the entity object directly is more reliable than just the ID
+                  if event_chat is not None:
+                    from_peer = event_chat  # Prefer entity object directly
                   elif event.chat_id is not None:
                     from_peer = event.chat_id
                   else:
-                    from_peer = event_chat  # Use entity itself as last resort
+                    logger.warning(f'Cannot determine from_peer for forwarding: event_chat={event_chat}, event.chat_id={event.chat_id}')
+                    from_peer = None
                   await forward_matched_message(event, receiver, from_peer=from_peer)
 
                   await bot.send_message(receiver, message_str,link_preview = True,parse_mode = 'markdown')
