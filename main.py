@@ -446,7 +446,7 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
                   continue
 
               else:
-                logger.debug(f'regex_match empty. regex:{keywords} ,message: t.me/{event_chat_username}/{event.message.id}')
+                logger.debug(f'regex_match empty. regex:{keywords} ,message: {channel_msg_url}')
             else:# Normal mode
               if keywords in text:
                 # # {chat_title} \n\n
