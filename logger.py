@@ -20,7 +20,7 @@ __LOG_FILE = f"{__LOG_DIR}/{__LOG_NAME}"
 
 # Fix level setting: properly get logging level constant, default to ERROR
 level_name = config['logger']['level'].upper()
-__level = getattr(logging, level_name, logging.DEBUG)
+__level = logging.DEBUG
 
 # Create formatter
 formatter = logging.Formatter(fmt='[%(levelname)s][%(name)s][%(asctime)s]-->%(message)s',datefmt='%Y-%m-%d %H:%M:%S%Z')
