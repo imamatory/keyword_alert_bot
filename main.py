@@ -1,8 +1,6 @@
 import asyncio
 import datetime
-import os
 import re as regex
-import tempfile
 import time
 from urllib.parse import urlparse
 
@@ -196,160 +194,6 @@ async def resolve_invit_hash(invit_hash,expired_secends = 60 * 5):
     return rel
   return None
 
-async def copy_and_send_message(event, receiver):
-  '''
-  Copy message content (text, images, files) and send as a new bot message
-  This is used as a fallback when forwarding fails
-
-  Args:
-      event: The event containing the message to copy
-      receiver: The chat_id of the receiver to send to
-
-  Returns:
-      bool: True if the message was sent, False otherwise
-  '''
-  try:
-    message = event.message
-    logger.debug(f'copy_and_send_message called: receiver={receiver}, message.id={message.id}')
-
-    # Get message text
-    text = message.text or message.raw_text or ''
-
-    # Check if message has media (photo, document, video, audio, etc.)
-    has_media = (message.photo is not None or
-                message.video is not None or
-                message.audio is not None or
-                message.document is not None or
-                message.sticker is not None or
-                message.voice is not None or
-                message.video_note is not None)
-
-    if has_media:
-      # Download and send media with caption
-      try:
-        # First, try to get the media from the message
-        # Download media using client (which has access to the channel)
-        # Download to a temporary file path
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.tmp') as tmp_file:
-          tmp_path = tmp_file.name
-
-        try:
-          # Download the media file to temporary path
-          downloaded_path = await client.download_media(message, file=tmp_path)
-          if downloaded_path and os.path.exists(downloaded_path):
-            # Send the downloaded file with caption
-            await bot.send_file(receiver, downloaded_path, caption=text if text else None)
-            logger.info(f'Copied and sent media message {message.id} to receiver {receiver}')
-            # Clean up temporary file
-            try:
-              os.unlink(downloaded_path)
-            except Exception:
-              pass
-            return True
-          else:
-            logger.warning(f'Failed to download media for message {message.id}')
-        finally:
-          # Clean up temp file if it still exists
-          try:
-            if os.path.exists(tmp_path):
-              os.unlink(tmp_path)
-          except Exception:
-            pass
-      except Exception as media_err:
-        logger.error(f'Error copying media for message {message.id}: {media_err}', exc_info=True)
-        # Fall through to send text only
-
-    # If no media or media download failed, send text only
-    if text:
-      await bot.send_message(receiver, text)
-      logger.info(f'Copied and sent text message {message.id} to receiver {receiver}')
-      return True
-    else:
-      logger.warning(f'Message {message.id} has no text or media to copy')
-      return False
-
-  except Exception as e:
-    logger.error(f'Error copying and sending message to {receiver}: {type(e).__name__}: {e}', exc_info=True)
-    return False
-
-async def forward_matched_message(event, receiver, from_peer=None):
-  '''
-  Forward the matched message that contains the pattern
-
-  Args:
-      event: The current event that triggered the pattern match
-      receiver: The chat_id of the receiver to forward to
-      from_peer: The chat entity or ID to forward from (optional, defaults to event.chat_id or event.chat)
-
-  Returns:
-      bool: True if the message was forwarded, False otherwise
-  '''
-  try:
-    message = event.message
-    is_forwarded = message.fwd_from is not None
-    logger.debug(f'forward_matched_message called: receiver={receiver}, from_peer={from_peer}, event.chat_id={event.chat_id}, event.chat={event.chat}, is_forwarded={is_forwarded}')
-
-    # For forwarded messages, we still forward from the current chat
-    # Telegram will automatically preserve the forward chain
-    # Determine the from_peer: use provided parameter, or prefer event.chat entity, fallback to event.chat_id
-    if from_peer is None:
-      logger.debug('from_peer is None, determining from event')
-      # Prefer using the entity object directly as it's more reliable
-      if event.chat is not None:
-        from_peer = event.chat
-        logger.debug(f'Using event.chat entity: {from_peer}')
-      elif event.chat_id is not None:
-        from_peer = event.chat_id
-        logger.debug(f'Using event.chat_id: {from_peer}')
-      else:
-        logger.error('Cannot forward message: event.chat_id is None and event.chat is None')
-        return False
-
-    # Ensure from_peer is not None before forwarding
-    if from_peer is None:
-      logger.error('Cannot forward message: from_peer is None after determination')
-      return False
-
-    # Try to resolve the entity if it's a raw ID
-    # Use client.get_input_entity() instead of bot.get_input_entity() because
-    # the client (reader) has access to channels that the bot might not have access to
-    try:
-      # If from_peer is already an entity object, use it directly
-      # Otherwise, try to resolve it using client.get_input_entity() (reader client has channel access)
-      if isinstance(from_peer, (int, str)):
-        logger.debug(f'Resolving entity for from_peer: {from_peer} (type: {type(from_peer)})')
-        resolved_entity = await client.get_input_entity(from_peer)
-        from_peer = resolved_entity
-        logger.debug(f'Resolved entity: {resolved_entity}')
-      # If it's already an entity object, use it as-is
-    except ValueError as ve:
-      # Entity cannot be resolved (e.g., channel/user ID that client doesn't have access to)
-      logger.warning(f'Cannot resolve entity for from_peer {from_peer}: {ve}. Attempting to copy message content instead.')
-      # Fallback: copy message content and send as new bot message
-      return await copy_and_send_message(event, receiver)
-    except Exception as resolve_err:
-      logger.warning(f'Error resolving entity for from_peer {from_peer}: {resolve_err}. Attempting forward with original from_peer.')
-      # Continue with original from_peer, let forward_messages handle it
-
-    logger.debug(f'Forwarding message {event.message.id} to receiver {receiver} from {from_peer} (type: {type(from_peer)}), is_forwarded: {is_forwarded}')
-    # Forward the matched message
-    # For forwarded messages, Telegram will preserve the forward information automatically
-    # Note: bot.forward_messages() will try to resolve the entity again internally
-    # If it fails, we catch the ValueError and skip forwarding gracefully
-    try:
-      await bot.forward_messages(receiver, [event.message.id], from_peer)
-      logger.info(f'Forwarded matched message {event.message.id} to receiver {receiver} from {from_peer}')
-      return True
-    except ValueError as ve:
-      # Bot cannot resolve the entity (e.g., bot doesn't have access to the channel)
-      # This can happen even if client resolved it, because bot and client have different access
-      logger.warning(f'Bot cannot forward from entity {from_peer}: {ve}. Attempting to copy message content instead.')
-      # Fallback: copy message content and send as new bot message
-      return await copy_and_send_message(event, receiver)
-  except Exception as e:
-    logger.error(f'Error forwarding matched message to {receiver}: {type(e).__name__}: {e}', exc_info=True)
-    return False
-
 # Client-related operations, purpose: read messages
 @client.on(events.MessageEdited)
 @client.on(events.NewMessage())
@@ -534,17 +378,7 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
                   if is_msg_block(receiver=receiver,msg=message.text,channel_name=event_chat_username,channel_id=event.chat_id):
                     continue
 
-                  # Forward the matched message - prefer event_chat entity directly, fallback to ID
-                  # Using the entity object directly is more reliable than just the ID
-                  if event_chat is not None:
-                    from_peer = event_chat  # Prefer entity object directly
-                  elif event.chat_id is not None:
-                    from_peer = event.chat_id
-                  else:
-                    logger.warning(f'Cannot determine from_peer for forwarding: event_chat={event_chat}, event.chat_id={event.chat_id}')
-                    from_peer = None
-                  await forward_matched_message(event, receiver, from_peer=from_peer)
-
+                  # Send link to the matched message (forwarding removed)
                   await bot.send_message(receiver, message_str,link_preview = True,parse_mode = 'markdown')
                 else:
                   # Message already sent
@@ -567,17 +401,7 @@ where ({' OR '.join(condition_strs)}) and l.status = 0  order by l.create_time  
                   if is_msg_block(receiver=receiver,msg=message.text,channel_name=event_chat_username,channel_id=event.chat_id):
                     continue
 
-                  # Forward the matched message - prefer event_chat entity directly, fallback to ID
-                  # Using the entity object directly is more reliable than just the ID
-                  if event_chat is not None:
-                    from_peer = event_chat  # Prefer entity object directly
-                  elif event.chat_id is not None:
-                    from_peer = event.chat_id
-                  else:
-                    logger.warning(f'Cannot determine from_peer for forwarding: event_chat={event_chat}, event.chat_id={event.chat_id}')
-                    from_peer = None
-                  await forward_matched_message(event, receiver, from_peer=from_peer)
-
+                  # Send link to the matched message (forwarding removed)
                   await bot.send_message(receiver, message_str,link_preview = True,parse_mode = 'markdown')
                 else:
                   # Message already sent
